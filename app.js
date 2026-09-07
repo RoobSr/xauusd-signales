@@ -436,6 +436,11 @@ function maybeLogSignal(signalResult, plan) {
   });
   saveLog(log);
   fireAlerts(signalResult, plan);
+  const isBuy = signalResult.signal === 'BUY';
+  showToast(
+    `<b>${isBuy ? '🟢 Nueva señal de COMPRA' : '🔴 Nueva señal de VENTA'}</b><span>${TF_LABEL[currentLTF]} · ${fmt(signalResult.price)} · ${signalResult.confidence}% ${signalResult.tier ? '· ' + signalResult.tier : ''}</span>`,
+    isBuy ? 'buy' : 'sell'
+  );
 }
 
 // Recorre el historial y marca cada señal como TP1 alcanzado, SL alcanzado o pendiente,
@@ -532,6 +537,10 @@ function maybeFireArmedAlert(armed) {
     if (prefs.notify && 'Notification' in window && Notification.permission === 'granted') {
       new Notification('🔶 Posible señal formándose', { body: `${armed.direction} en ${TF_LABEL[armed.tf]} — ${armed.proximityPct}% del camino` });
     }
+    showToast(
+      `<b>🔶 Posible señal formándose</b><span>${armed.direction === 'BUY' ? 'Compra' : 'Venta'} en ${TF_LABEL[armed.tf]} — ${armed.proximityPct}% del camino</span>`,
+      'armed', 5000
+    );
   }
   lastArmedKey = key;
 }
@@ -799,6 +808,36 @@ function updatePriceHeader(candles) {
   const changePct = ((lastPrice - first.close) / first.close) * 100;
   priceChangeEl.textContent = `${changePct >= 0 ? '+' : ''}${changePct.toFixed(2)}% (24h aprox.)`;
   priceChangeEl.className = 'price-change ' + (changePct >= 0 ? 'up' : 'down');
+
+  if (prevPrice != null && lastPrice !== prevPrice) {
+    livePriceEl.classList.remove('flash-up', 'flash-down');
+    void livePriceEl.offsetWidth; // fuerza reflow para poder re-disparar la animación
+    livePriceEl.classList.add(lastPrice > prevPrice ? 'flash-up' : 'flash-down');
+  }
+}
+
+// ---------- Notificaciones "toast" (nueva señal, avisos) ----------
+function showToast(html, type = 'info', duration = 6000) {
+  const container = document.getElementById('toastContainer');
+  const toast = document.createElement('div');
+  toast.className = 'toast ' + type;
+  toast.innerHTML = html;
+  container.appendChild(toast);
+  setTimeout(() => {
+    toast.classList.add('leaving');
+    setTimeout(() => toast.remove(), 260);
+  }, duration);
+}
+
+// ---------- Onboarding: modal de bienvenida (una vez) + botón de ayuda ----------
+function wireOnboarding() {
+  const overlay = document.getElementById('onboardingOverlay');
+  const open = () => { overlay.hidden = false; };
+  const close = () => { overlay.hidden = true; localStorage.setItem('xauusd_onboarding_seen', '1'); };
+  document.getElementById('onboardingCloseBtn').addEventListener('click', close);
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+  document.getElementById('helpBtn').addEventListener('click', open);
+  if (!localStorage.getItem('xauusd_onboarding_seen')) open();
 }
 
 // ---------- Escáner multi-timeframe: una señal por TF, reutilizando datos ya cargados ----------
@@ -1153,6 +1192,7 @@ wireSecondaryPanel();
 wireExportCsv();
 wireSync();
 wireWebhooks();
+wireOnboarding();
 renderLog(loadLog());
 refresh().then(startAutoRefresh);
 setInterval(tickCountdown, 1000);

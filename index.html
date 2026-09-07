@@ -21,12 +21,31 @@
     <div class="price" id="livePrice">-.--</div>
     <div class="price-change" id="priceChange">--</div>
   </div>
+  <button class="mode-btn" id="helpBtn" title="Cómo usar esta página">❓ Ayuda</button>
   <button class="mode-btn" id="modeToggleBtn" title="Alterna entre vista básica y vista profesional completa">🎓 Modo Básico</button>
   <div class="updated">
     <div id="lastUpdate">Cargando…</div>
     <div id="nextRefresh"></div>
   </div>
 </header>
+
+<div class="onboarding-overlay" id="onboardingOverlay" hidden>
+  <div class="onboarding-modal">
+    <h2>👋 Bienvenido al Panel XAUUSD</h2>
+    <p>Esto analiza oro (XAU/USD) en vivo con conceptos de Smart Money / ICT — estructura, liquidez, order blocks, FVG — y solo te muestra una señal cuando hay suficiente confluencia real. Guía rápida:</p>
+    <ul>
+      <li><b>🟢/🔴 Señal actual</b>: arriba a la derecha. Si dice NEUTRAL, no hay entrada clara — es lo normal la mayoría del tiempo.</li>
+      <li><b>Zona de entrada</b>: pulsa cuando el precio ya está dentro; "esperando" cuando todavía no.</li>
+      <li><b>🎯 Mejores Oportunidades</b>: compara las 5 temporalidades a la vez.</li>
+      <li><b>📖 Glosario</b>: si un término no se entiende (BOS, FVG, OTE...), está explicado ahí abajo.</li>
+      <li><b>Modo Básico</b>: oculta las tarjetas técnicas si solo quieres ver la señal y el gráfico.</li>
+    </ul>
+    <p class="onboarding-note">⚠️ Es una herramienta educativa, no asesoría financiera. Ninguna señal es garantía de resultado.</p>
+    <button class="copy-btn" id="onboardingCloseBtn">Entendido, empezar</button>
+  </div>
+</div>
+
+<div class="toast-container" id="toastContainer"></div>
 
 <div class="disclaimer">
   ⚠️ Herramienta educativa/analítica, no es asesoría financiera personalizada. Los precios provienen de <b>PAXG/USDT</b>
