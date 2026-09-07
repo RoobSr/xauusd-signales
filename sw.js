@@ -1,11 +1,15 @@
 /**
- * Service worker mínimo: solo cachea el "cascarón" estático de la página
- * (HTML/CSS/JS propios) para que abra rápido/offline en otro dispositivo
- * una vez visitada. NUNCA intercepta peticiones a otros orígenes
- * (api.binance.com, TradingView) — esas siempre van directo a la red,
- * porque los datos deben ser reales y en vivo, nunca servidos desde caché.
+ * Service worker mínimo: cachea el "cascarón" estático de la página
+ * (HTML/CSS/JS propios) SOLO como respaldo para cuando no hay internet.
+ * Mientras haya conexión, siempre se pide la versión más nueva a la red
+ * primero — así cada actualización que se publique se ve de inmediato,
+ * sin quedar atascado en una copia vieja cacheada.
+ *
+ * NUNCA intercepta peticiones a otros orígenes (api.binance.com,
+ * TradingView) — esas siempre van directo a la red, porque los datos
+ * deben ser reales y en vivo, nunca servidos desde caché.
  */
-const CACHE_NAME = 'xauusd-shell-v1';
+const CACHE_NAME = 'xauusd-shell-v2';
 const SHELL_FILES = [
   './',
   './index.html',
@@ -41,7 +45,16 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
   if (url.origin !== location.origin) return; // Binance / TradingView: siempre red directa
   if (event.request.method !== 'GET') return;
+
+  // Network-first: intenta traer siempre la versión más nueva. Solo si no
+  // hay conexión (fetch falla) se usa la copia guardada como respaldo.
   event.respondWith(
-    caches.match(event.request).then((cached) => cached || fetch(event.request))
+    fetch(event.request)
+      .then((res) => {
+        const resClone = res.clone();
+        caches.open(CACHE_NAME).then((cache) => cache.put(event.request, resClone));
+        return res;
+      })
+      .catch(() => caches.match(event.request))
   );
 });
