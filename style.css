@@ -400,6 +400,13 @@ html, body {
 .setup-name { font-size: 12px; font-weight: 600; }
 .setup-desc { font-size: 11px; color: var(--muted); margin-top: 3px; line-height: 1.4; }
 
+.setup-history { font-size: 11px; margin-bottom: 10px; padding: 6px 8px; border-radius: 6px; background: var(--panel-2); border: 1px solid var(--border); }
+.setup-history:empty { display: none; }
+.setup-history b { font-size: 13px; }
+.setup-history.good b { color: var(--green); }
+.setup-history.bad b { color: var(--red); }
+.setup-history.na { color: var(--muted); font-style: italic; }
+
 .glossary-item {
   font-size: 12px;
   border-top: 1px solid var(--border);

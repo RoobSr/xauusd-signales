@@ -125,6 +125,7 @@
         <span id="confidenceText">0%</span>
       </div>
       <div class="setup-info" id="setupInfo"></div>
+      <div class="setup-history" id="setupHistoryStat" title="Basado en el historial real verificado de señales pasadas con este mismo Setup — no es una predicción, es lo que pasó de hecho. No garantiza el resultado de esta señal."></div>
       <div class="trade-plan" id="tradePlan"></div>
       <div class="btn-row">
         <button class="copy-btn" id="copyPlanBtn" disabled>📋 Copiar plan</button>
@@ -281,6 +282,7 @@
     <details class="glossary-item"><summary>RSI / MACD / ADX / Bollinger</summary>Indicadores técnicos clásicos usados solo como confirmación secundaria: RSI mide sobrecompra/sobreventa, MACD el momentum, ADX la fuerza de la tendencia, y Bollinger la expansión/contracción de la volatilidad.</details>
     <details class="glossary-item"><summary>R:R (Risk:Reward)</summary>Relación riesgo:beneficio. Un R:R de 1:2 significa que si ganas, ganas el doble de lo que arriesgas si pierdes.</details>
     <details class="glossary-item"><summary>Tier A+ / B / C</summary>Calidad de la señal según cuántas categorías de confluencia independientes se activaron a la vez: A+ (4 o más), B (2-3), C (el mínimo indispensable).</details>
+    <details class="glossary-item"><summary>% histórico del Setup</summary>Debajo del nombre del Setup, cuando hay señal activa: de cuántas señales reales pasadas con ese mismo Setup llegaron primero a TP1 vs. al SL. Se calcula solo con resultados ya verificados, no es una predicción ni una probabilidad de un modelo — y se oculta si todavía hay menos de 5 señales resueltas de ese tipo, porque con tan pocos datos la cifra no significaría nada.</details>
     <details class="glossary-item"><summary>Modo Conservador</summary>Filtro opcional (botón en la barra del gráfico) que oculta y no alerta ninguna señal que no sea tier A+. No cambia el análisis, solo sube la exigencia de confluencia antes de mostrar algo — el resultado esperado es muchas menos señales, con la intención de que las que sí pasan el filtro tengan mejor precisión histórica.</details>
   </div>
 </section>

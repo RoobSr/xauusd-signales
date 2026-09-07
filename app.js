@@ -392,6 +392,31 @@ function renderSignalPanel(signalResult, plan, ltf) {
   document.getElementById('atrVal').textContent = fmt(ICT.computeATR(ltf.candles, 14));
 }
 
+// ---------- % histórico real por tipo de Setup (no es una predicción) ----------
+// Mira el historial YA VERIFICADO (TP1 vs SL) de señales pasadas con este mismo
+// Setup nombrado y muestra qué tan seguido llegaron a TP1 antes que al SL. Es un
+// hecho del pasado, no una probabilidad calculada por ningún modelo — por eso se
+// oculta hasta tener una muestra mínima, para no dar una cifra que no signifique nada.
+const SETUP_HISTORY_MIN_SAMPLE = 5;
+function renderSetupHistoryStat(signalResult) {
+  const el = document.getElementById('setupHistoryStat');
+  if (!signalResult.setup || signalResult.signal === 'NEUTRAL') { el.innerHTML = ''; el.className = 'setup-history'; return; }
+
+  const code = signalResult.setup.code;
+  const log = loadLog();
+  const matches = log.filter(i => i.setup === code && (i.outcome === 'tp1' || i.outcome === 'sl'));
+
+  if (matches.length < SETUP_HISTORY_MIN_SAMPLE) {
+    el.className = 'setup-history na';
+    el.innerHTML = `📊 Historial real de este Setup todavía insuficiente para estimar nada (${matches.length}/${SETUP_HISTORY_MIN_SAMPLE} señales resueltas necesarias).`;
+    return;
+  }
+  const wins = matches.filter(i => i.outcome === 'tp1').length;
+  const pct = Math.round((wins / matches.length) * 100);
+  el.className = 'setup-history ' + (pct >= 55 ? 'good' : pct < 40 ? 'bad' : '');
+  el.innerHTML = `📊 De las últimas <b>${matches.length}</b> señales reales con este mismo Setup, <b>${pct}%</b> llegaron primero a TP1 (no al SL). No es una predicción — es lo que pasó de hecho, y no garantiza esta señal.`;
+}
+
 const OUTCOME_BADGE = {
   tp1: '<span class="outcome-tag tp1">✅ TP1</span>',
   sl: '<span class="outcome-tag sl">❌ SL</span>',
@@ -440,6 +465,7 @@ function maybeLogSignal(signalResult, plan) {
   log.push({
     time: signalResult.time, signal: signalResult.signal, price: signalResult.price,
     confidence: signalResult.confidence, tf: currentLTF, tier: signalResult.tier,
+    setup: signalResult.setup ? signalResult.setup.code : null,
     entry: plan ? plan.entry : null, sl: plan ? plan.sl : null, tp1: plan ? plan.tp1 : null,
     outcome: 'pending', session: sessionOf(signalResult.time)
   });
@@ -1108,6 +1134,7 @@ async function refresh() {
     const plan = ICT.computeTradePlan(signalResult, ltf.candles, ltf.sr, ltf.obs, ltf.fvgs);
 
     renderSignalPanel(signalResult, plan, ltf);
+    renderSetupHistoryStat(signalResult);
     maybeLogSignal(signalResult, plan);
     const evaluatedLog = evaluateSignalOutcomes(pipelines);
     renderLog(evaluatedLog);
