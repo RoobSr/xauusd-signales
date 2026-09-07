@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="theme-color" content="#0b0e14" />
+<title>XAUUSD · Panel de Señales Profesional</title>
+<link rel="manifest" href="manifest.json" />
+<link rel="icon" href="icon.svg" type="image/svg+xml" />
+<link rel="apple-touch-icon" href="icon.svg" />
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <span class="dot" id="statusDot"></span>
+    <h1>XAUUSD <span class="muted">/ Panel de Señales SMC · ICT</span></h1>
+  </div>
+  <div class="price-block">
+    <div class="price" id="livePrice">-.--</div>
+    <div class="price-change" id="priceChange">--</div>
+  </div>
+  <button class="mode-btn" id="modeToggleBtn" title="Alterna entre vista básica y vista profesional completa">🎓 Modo Básico</button>
+  <div class="updated">
+    <div id="lastUpdate">Cargando…</div>
+    <div id="nextRefresh"></div>
+  </div>
+</header>
+
+<div class="disclaimer">
+  ⚠️ Herramienta educativa/analítica, no es asesoría financiera personalizada. Los precios provienen de <b>PAXG/USDT</b>
+  (token respaldado 1:1 por oro físico, sigue el spot de XAU/USD muy de cerca) porque el widget gratuito de TradingView
+  es solo una vista embebida y no expone sus datos para correr análisis propio. El gráfico de TradingView de arriba es
+  100% real y en vivo para referencia visual del precio oficial. Las señales solo se calculan sobre velas ya <b>cerradas</b>
+  (nunca sobre la vela en formación) y cada una exige una zona real (Order Block, FVG o barrido de liquidez) más una vela
+  de confirmación — no son garantía de resultado, y el historial de la derecha rastrea automáticamente si cada señal
+  pasada llegó primero a TP1 o al SL, para que la precisión se pueda verificar con datos reales, no solo con la confianza estimada.
+</div>
+
+<section class="tv-wrap">
+  <div class="tv-header">Gráfico oficial TradingView — OANDA:XAUUSD</div>
+  <div class="tradingview-widget-container">
+    <div id="tv_chart"></div>
+  </div>
+</section>
+
+<section class="main-grid">
+  <div class="chart-panel">
+    <div class="chart-toolbar">
+      <div class="tf-group" id="tfGroup">
+        <button data-tf="5m" class="tf-btn">5m</button>
+        <button data-tf="15m" class="tf-btn active">15m</button>
+        <button data-tf="1h" class="tf-btn">1H</button>
+        <button data-tf="4h" class="tf-btn">4H</button>
+      </div>
+      <button class="live-btn" id="liveBtn" hidden>🔴 Volver al precio en vivo</button>
+      <div class="toggle-group">
+        <label><input type="checkbox" id="tg-sr" checked> Soportes/Resistencias</label>
+        <label><input type="checkbox" id="tg-obs" checked> Order Blocks</label>
+        <label><input type="checkbox" id="tg-fvgs" checked> FVG</label>
+        <label><input type="checkbox" id="tg-liquidity" checked> Liquidez</label>
+        <label><input type="checkbox" id="tg-events" checked> BOS/CHoCH</label>
+        <label><input type="checkbox" id="tg-pd" checked> Premium/Discount</label>
+        <label><input type="checkbox" id="tg-signals" checked> Señales</label>
+        <label><input type="checkbox" id="tg-tradeplan" checked> Plan de Trade (Entry/TP/SL)</label>
+        <label><input type="checkbox" id="tg-volume" checked> Volumen</label>
+        <label><input type="checkbox" id="tg-sessions" checked> Sesiones</label>
+        <label><input type="checkbox" id="tg-keyLevels" checked> Niveles Clave (PDH/PDL/Asia)</label>
+      </div>
+    </div>
+    <div class="chart-container">
+      <canvas id="chartCanvas"></canvas>
+      <div class="tooltip" id="chartTooltip"></div>
+    </div>
+    <div class="legend">
+      <span><i class="sw ob-bull"></i> Order Block alcista</span>
+      <span><i class="sw ob-bear"></i> Order Block bajista</span>
+      <span><i class="sw fvg-bull"></i> FVG alcista</span>
+      <span><i class="sw fvg-bear"></i> FVG bajista</span>
+      <span><i class="sw sr-sup"></i> Soporte</span>
+      <span><i class="sw sr-res"></i> Resistencia</span>
+      <span><i class="sw plan-entry"></i> Entry Zone</span>
+      <span><i class="sw plan-sl"></i> Invalid Level (SL)</span>
+      <span><i class="sw plan-tp"></i> TP1 / TP2 / TP3</span>
+      <span><i class="sw sess-asia"></i> Sesión Asia</span>
+      <span><i class="sw sess-london"></i> Sesión Londres</span>
+      <span><i class="sw sess-ny"></i> Sesión Nueva York</span>
+      <span><i class="sw key-pd"></i> PDH / PDL (día anterior)</span>
+      <span><i class="sw key-asia"></i> Máx./Mín. sesión asiática</span>
+    </div>
+  </div>
+
+  <aside class="signal-panel">
+    <div class="signal-card" id="signalCard">
+      <div class="signal-label">SEÑAL ACTUAL</div>
+      <div class="signal-badge" id="signalBadge">--</div>
+      <div class="confidence-row">
+        <div class="confidence-bar"><div class="confidence-fill" id="confidenceFill"></div></div>
+        <span id="confidenceText">0%</span>
+      </div>
+      <div class="trade-plan" id="tradePlan"></div>
+      <div class="btn-row">
+        <button class="copy-btn" id="copyPlanBtn" disabled>📋 Copiar plan</button>
+        <button class="copy-btn" id="sharePlanBtn" disabled>📤 Compartir</button>
+      </div>
+      <div class="reasons" id="reasonsList"></div>
+    </div>
+
+    <div class="panel-card">
+      <div class="tools-header">🎯 Mejores Oportunidades (todas las temporalidades)</div>
+      <div class="opportunities-list" id="opportunitiesList"></div>
+    </div>
+
+    <div class="panel-card">
+      <div class="tools-header">📱 Sincronizar entre dispositivos</div>
+      <p class="muted small">Tu configuración e historial viven solo en este navegador (localStorage). Exporta un archivo aquí y ábrelo en la página en tu otro dispositivo para llevar todo contigo.</p>
+      <div class="sync-row">
+        <button class="copy-btn" id="exportConfigBtn">⬇ Exportar configuración</button>
+        <button class="copy-btn" id="importConfigBtn">⬆ Importar configuración</button>
+        <input type="file" id="importConfigFile" accept="application/json" hidden>
+      </div>
+      <p class="muted small" id="pwaInstallHint">💡 En Chrome/Edge (celular o PC) puedes instalar esta página como app: menú del navegador → "Instalar aplicación" o "Agregar a pantalla de inicio".</p>
+    </div>
+
+    <div class="tools-card">
+      <div class="tools-header">Alertas</div>
+      <label class="switch-row"><input type="checkbox" id="tg-sound"> 🔊 Sonido al aparecer señal</label>
+      <label class="switch-row"><input type="checkbox" id="tg-notify"> 🔔 Notificación del navegador</label>
+
+      <div class="tools-header" style="margin-top:10px;">Tamaño de posición</div>
+      <div class="calc-row">
+        <label>Balance (USD)<input type="number" id="calcBalance" min="0" step="10" value="1000"></label>
+        <label>Riesgo (%)<input type="number" id="calcRisk" min="0.1" max="100" step="0.1" value="1"></label>
+      </div>
+      <div class="calc-result" id="calcResult">Sin señal activa — no hay SL para calcular.</div>
+    </div>
+
+    <div class="context-card">
+      <div class="tools-header">Sesgo Multi-Timeframe</div>
+      <div class="mtf-bias" id="mtfBias"></div>
+      <div class="context-row"><span>Zona actual</span><b id="pdZone">-</b></div>
+      <div class="context-row"><span>ATR (14)</span><b id="atrVal">-</b></div>
+    </div>
+
+    <div class="log-card">
+      <div class="log-header-row">
+        <div class="log-header">Historial de señales</div>
+        <button class="export-btn" id="exportCsvBtn" title="Descargar el historial como CSV">⬇ CSV</button>
+      </div>
+      <div class="log-stats" id="logStats"></div>
+      <div class="log-list" id="signalLog"></div>
+    </div>
+  </aside>
+</section>
+
+<section class="analysis-grid" id="advancedSection">
+  <div class="panel-card">
+    <div class="tools-header">Volatilidad e Indicadores (confirmación secundaria)</div>
+    <div class="vol-badge-row">
+      <span class="vol-badge" id="volBadge">-</span>
+      <span class="muted" id="volDetail"></span>
+    </div>
+    <div class="ind-grid" id="indicatorsGrid"></div>
+    <p class="muted small">Los indicadores nunca deciden una entrada por sí solos — solo suman un ajuste pequeño de puntaje sobre la estructura y liquidez del motor ICT.</p>
+  </div>
+
+  <div class="panel-card">
+    <div class="tools-header">Estructura de Mercado</div>
+    <div class="context-row"><span>Interna vs. Externa</span><b id="structAlign">-</b></div>
+    <div class="swing-labels" id="swingLabels"></div>
+  </div>
+
+  <div class="panel-card">
+    <div class="tools-header">Motor de Escenarios</div>
+    <div class="scenario-row bullish"><b>Alcista</b><p id="scenarioBull"></p></div>
+    <div class="scenario-row neutral"><b>Neutral / Rango</b><p id="scenarioNeutral"></p></div>
+    <div class="scenario-row bearish"><b>Bajista</b><p id="scenarioBear"></p></div>
+  </div>
+
+  <div class="panel-card">
+    <div class="tools-header">Checklist de la Señal Actual</div>
+    <ul class="checklist" id="checklistList"></ul>
+  </div>
+
+  <div class="panel-card">
+    <div class="tools-header">Rendimiento Real (historial verificado)</div>
+    <div class="perf-grid" id="perfGrid"></div>
+    <div class="context-row"><span>Señales hoy (este timeframe)</span><b id="signalsToday">0</b></div>
+    <div class="tools-header" style="margin-top:10px;">Por sesión</div>
+    <div class="breakdown-table" id="perfBySession"></div>
+    <div class="tools-header" style="margin-top:10px;">Por calidad (tier)</div>
+    <div class="breakdown-table" id="perfByTier"></div>
+  </div>
+
+  <div class="panel-card">
+    <div class="tools-header">Backtest Rápido (walk-forward, sin lookahead)</div>
+    <p class="muted small">Reproduce la misma lógica de señales vela por vela sobre los datos ya cargados, usando en cada punto solo información pasada. El sesgo de 1H/4H usado es el actual (no recalculado vela por vela) — ventana limitada a lo que Binance devuelve, no es un backtest de años.</p>
+    <button class="copy-btn" id="runBacktestBtn">▶ Ejecutar backtest sobre este timeframe</button>
+    <div class="perf-grid" id="backtestResult"></div>
+  </div>
+
+  <div class="panel-card">
+    <div class="tools-header">Contexto Macro y Correlaciones</div>
+    <div class="context-row"><span>Correlación XAU vs BTC (50 velas 1H)</span><b id="corrBtc">-</b></div>
+    <div class="macro-row"><span>DXY (índice del dólar)</span><span class="na-tag">DATO NO DISPONIBLE</span></div>
+    <div class="macro-row"><span>Rendimientos US10Y / US2Y</span><span class="na-tag">DATO NO DISPONIBLE</span></div>
+    <div class="macro-row"><span>Calendario económico (FOMC/CPI/NFP)</span><span class="na-tag">DATO NO DISPONIBLE</span></div>
+    <div class="macro-row"><span>Noticias de alto impacto</span><span class="na-tag">DATO NO DISPONIBLE</span></div>
+    <div class="macro-row"><span>COT / posicionamiento institucional</span><span class="na-tag">DATO NO DISPONIBLE</span></div>
+    <p class="muted small">Estos datos requieren una fuente en vivo con API key propia (Twelve Data, Alpha Vantage, Finnhub, un calendario económico de pago, etc.). Esta página no inventa valores: si no existe una fuente gratuita real y verificable, se muestra explícitamente como no disponible.</p>
+  </div>
+</section>
+
+<section class="narrative-panel" id="narrativeSection">
+  <div class="tools-header">🧠 Análisis Completo</div>
+  <div id="narrativeText" class="narrative-text"></div>
+</section>
+
+<section class="secondary-panel">
+  <div class="secondary-header">
+    <div class="tools-header" style="margin:0;">Panel de Análisis Dinámico</div>
+    <select id="secondarySelect">
+      <option value="heatmap">Mapa de Confluencia (alcista vs. bajista)</option>
+      <option value="equity">Curva de Resultados (R acumulado, historial real)</option>
+      <option value="structure">Puntaje de Estructura por Componente</option>
+    </select>
+  </div>
+  <canvas id="secondaryCanvas"></canvas>
+</section>
+
+<footer>
+  Datos: Binance API pública (PAXGUSDT klines) · Gráfico oficial: TradingView (OANDA:XAUUSD) · Actualiza cada 15s ·
+  Construido localmente, sin backend.
+  <div id="dataQualityLine" class="data-quality">Cargando calidad de datos…</div>
+</footer>
+
+<script>
+  // Widget oficial de TradingView (embebido, en vivo, gratuito)
+  (function () {
+    const container = document.getElementById('tv_chart');
+    const script = document.createElement('script');
+    script.src = 'https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js';
+    script.async = true;
+    script.innerHTML = JSON.stringify({
+      autosize: true,
+      symbol: 'OANDA:XAUUSD',
+      interval: '15',
+      timezone: 'Etc/UTC',
+      theme: 'dark',
+      style: '1',
+      locale: 'es',
+      enable_publishing: false,
+      hide_top_toolbar: false,
+      hide_legend: false,
+      save_image: false,
+      calendar: false,
+      support_host: 'https://www.tradingview.com'
+    });
+    container.appendChild(script);
+  })();
+</script>
+
+<script src="indicators.js"></script>
+<script src="analysis.js"></script>
+<script src="backtest.js"></script>
+<script src="chart.js"></script>
+<script src="app.js"></script>
+<script>
+  // PWA: instalable en otros dispositivos. Los service workers no funcionan
+  // sobre file://, así que solo se registra cuando la página corre por http(s).
+  if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('sw.js').catch(() => {});
+    });
+  } else {
+    const hint = document.getElementById('pwaInstallHint');
+    if (hint) hint.textContent = '💡 Para instalarla como app, ábrela primero con Iniciar.bat (o cualquier servidor local/en línea) en vez de abrir el archivo directamente.';
+  }
+</script>
+</body>
+</html>
