@@ -113,10 +113,71 @@ function notifyBrowser(signalResult) {
   });
 }
 
-function fireAlerts(signalResult) {
+// ---------- Webhooks (Discord / Telegram) — el usuario aporta su propia URL/token ----------
+async function sendDiscordWebhook(url, content) {
+  if (!url) return false;
+  try {
+    const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ content }) });
+    return res.ok;
+  } catch (e) { console.warn('Discord webhook falló (posible bloqueo CORS):', e); return false; }
+}
+async function sendTelegramMessage(token, chatId, text) {
+  if (!token || !chatId) return false;
+  try {
+    const res = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chat_id: chatId, text })
+    });
+    return res.ok;
+  } catch (e) { console.warn('Telegram falló:', e); return false; }
+}
+
+function fireAlerts(signalResult, plan) {
   const prefs = loadPrefs();
   if (prefs.sound) playAlertSound(signalResult.signal);
   if (prefs.notify) notifyBrowser(signalResult);
+  if (prefs.discordEnabled || prefs.telegramEnabled) {
+    const text = plan ? buildPlanText(signalResult, plan) : `XAUUSD — ${signalResult.signal} (${currentLTF}) a ${fmt(signalResult.price)}`;
+    if (prefs.discordEnabled) sendDiscordWebhook(prefs.discordWebhookUrl, text);
+    if (prefs.telegramEnabled) sendTelegramMessage(prefs.telegramBotToken, prefs.telegramChatId, text);
+  }
+}
+
+function wireWebhooks() {
+  const prefs = loadPrefs();
+  const discordCb = document.getElementById('tg-discord');
+  const telegramCb = document.getElementById('tg-telegram');
+  const discordUrl = document.getElementById('discordWebhookUrl');
+  const tgToken = document.getElementById('telegramBotToken');
+  const tgChatId = document.getElementById('telegramChatId');
+
+  discordCb.checked = !!prefs.discordEnabled;
+  telegramCb.checked = !!prefs.telegramEnabled;
+  if (prefs.discordWebhookUrl) discordUrl.value = prefs.discordWebhookUrl;
+  if (prefs.telegramBotToken) tgToken.value = prefs.telegramBotToken;
+  if (prefs.telegramChatId) tgChatId.value = prefs.telegramChatId;
+
+  const persist = () => savePrefs({
+    ...loadPrefs(),
+    discordEnabled: discordCb.checked, discordWebhookUrl: discordUrl.value.trim(),
+    telegramEnabled: telegramCb.checked, telegramBotToken: tgToken.value.trim(), telegramChatId: tgChatId.value.trim()
+  });
+  [discordCb, telegramCb, discordUrl, tgToken, tgChatId].forEach(el => el.addEventListener('change', persist));
+
+  document.getElementById('testDiscordBtn').addEventListener('click', async () => {
+    const btn = document.getElementById('testDiscordBtn');
+    persist();
+    btn.textContent = 'Enviando…';
+    const ok = await sendDiscordWebhook(discordUrl.value.trim(), '✅ Prueba desde el Panel de Señales XAUUSD — si ves este mensaje, el webhook funciona.');
+    btn.textContent = ok ? '✅ Enviado' : '❌ Falló'; setTimeout(() => { btn.textContent = 'Probar'; }, 2200);
+  });
+  document.getElementById('testTelegramBtn').addEventListener('click', async () => {
+    const btn = document.getElementById('testTelegramBtn');
+    persist();
+    btn.textContent = 'Enviando…';
+    const ok = await sendTelegramMessage(tgToken.value.trim(), tgChatId.value.trim(), '✅ Prueba desde el Panel de Señales XAUUSD — si ves este mensaje, el bot funciona.');
+    btn.textContent = ok ? '✅ Enviado' : '❌ Falló'; setTimeout(() => { btn.textContent = 'Probar'; }, 2200);
+  });
 }
 
 // ---------- Calculadora de tamaño de posición ----------
@@ -293,6 +354,11 @@ function renderSignalPanel(signalResult, plan, ltf) {
   document.getElementById('confidenceFill').style.width = signalResult.confidence + '%';
   document.getElementById('confidenceText').textContent = signalResult.confidence + '%';
 
+  const setupEl = document.getElementById('setupInfo');
+  setupEl.innerHTML = signalResult.setup
+    ? `<span class="setup-tag">SETUP ${signalResult.setup.code}</span><span class="setup-name">${signalResult.setup.name}</span><div class="setup-desc">${signalResult.setup.desc}</div>`
+    : '';
+
   document.title = signalResult.signal === 'BUY' ? '🟢 COMPRA — XAUUSD'
     : signalResult.signal === 'SELL' ? '🔴 VENTA — XAUUSD'
     : 'XAUUSD · Panel de Señales';
@@ -369,7 +435,7 @@ function maybeLogSignal(signalResult, plan) {
     outcome: 'pending', session: sessionOf(signalResult.time)
   });
   saveLog(log);
-  fireAlerts(signalResult);
+  fireAlerts(signalResult, plan);
 }
 
 // Recorre el historial y marca cada señal como TP1 alcanzado, SL alcanzado o pendiente,
@@ -993,6 +1059,7 @@ wireBacktest();
 wireSecondaryPanel();
 wireExportCsv();
 wireSync();
+wireWebhooks();
 renderLog(loadLog());
 refresh().then(startAutoRefresh);
 setInterval(tickCountdown, 1000);

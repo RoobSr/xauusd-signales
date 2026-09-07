@@ -320,6 +320,7 @@ function generateSignal({ ltfCandles, ltfStructure, htfStructure, biasStructure,
 
   let bullScore = 0, bearScore = 0, bullCategories = 0, bearCategories = 0;
   let bullAnchor = false, bearAnchor = false;
+  let bullAnchorType = null, bearAnchorType = null, bullKeyLevelType = null, bearKeyLevelType = null;
   const bullReasons = [], bearReasons = [];
   const checklist = [];
   const breakdown = {
@@ -348,14 +349,14 @@ function generateSignal({ ltfCandles, ltfStructure, htfStructure, biasStructure,
   const activeBullFVG = fvgs.filter(g => g.type === 'bullish' && !g.mitigated).find(g => price <= g.top && price >= g.bottom);
   const activeBearFVG = fvgs.filter(g => g.type === 'bearish' && !g.mitigated).find(g => price <= g.top && price >= g.bottom);
 
-  if (activeBullOB && isBullCandle) { bullScore += 2; bullCategories++; bullAnchor = true; bullReasons.push('Vela de confirmación alcista dentro de Order Block sin mitigar'); breakdown.zone.bull += 2; }
+  if (activeBullOB && isBullCandle) { bullScore += 2; bullCategories++; bullAnchor = true; bullAnchorType = 'OB'; bullReasons.push('Vela de confirmación alcista dentro de Order Block sin mitigar'); breakdown.zone.bull += 2; }
   else if (activeBullOB) { bullReasons.push('Precio en Order Block alcista, esperando vela de confirmación'); }
-  if (activeBearOB && isBearCandle) { bearScore += 2; bearCategories++; bearAnchor = true; bearReasons.push('Vela de confirmación bajista dentro de Order Block sin mitigar'); breakdown.zone.bear += 2; }
+  if (activeBearOB && isBearCandle) { bearScore += 2; bearCategories++; bearAnchor = true; bearAnchorType = 'OB'; bearReasons.push('Vela de confirmación bajista dentro de Order Block sin mitigar'); breakdown.zone.bear += 2; }
   else if (activeBearOB) { bearReasons.push('Precio en Order Block bajista, esperando vela de confirmación'); }
 
-  if (activeBullFVG && isBullCandle) { bullScore += 1.5; bullCategories++; bullAnchor = true; bullReasons.push('Vela de confirmación alcista dentro de Fair Value Gap'); breakdown.zone.bull += 1.5; }
+  if (activeBullFVG && isBullCandle) { bullScore += 1.5; bullCategories++; bullAnchor = true; if (!bullAnchorType) bullAnchorType = 'FVG'; bullReasons.push('Vela de confirmación alcista dentro de Fair Value Gap'); breakdown.zone.bull += 1.5; }
   else if (activeBullFVG) { bullReasons.push('Precio en FVG alcista, esperando vela de confirmación'); }
-  if (activeBearFVG && isBearCandle) { bearScore += 1.5; bearCategories++; bearAnchor = true; bearReasons.push('Vela de confirmación bajista dentro de Fair Value Gap'); breakdown.zone.bear += 1.5; }
+  if (activeBearFVG && isBearCandle) { bearScore += 1.5; bearCategories++; bearAnchor = true; if (!bearAnchorType) bearAnchorType = 'FVG'; bearReasons.push('Vela de confirmación bajista dentro de Fair Value Gap'); breakdown.zone.bear += 1.5; }
   else if (activeBearFVG) { bearReasons.push('Precio en FVG bajista, esperando vela de confirmación'); }
 
   const nearSupport = srLevels.find(l => l.lowTouches > 0 && Math.abs(price - l.price) / price < 0.0025 && price >= l.price - price * 0.0025);
@@ -372,10 +373,10 @@ function generateSignal({ ltfCandles, ltfStructure, htfStructure, biasStructure,
       ['asianLow', keyLevels.asianLow, 'mínimo de la sesión asiática', 'bull'],
       ['asianHigh', keyLevels.asianHigh, 'máximo de la sesión asiática', 'bear']
     ];
-    for (const [, lvl, label, dir] of checks) {
+    for (const [key, lvl, label, dir] of checks) {
       if (lvl == null || Math.abs(price - lvl) > nearTol) continue;
-      if (dir === 'bull' && isBullCandle) { bullScore += 1; bullCategories++; bullReasons.push(`Reacción alcista cerca del ${label}`); breakdown.keyLevel.bull += 1; }
-      if (dir === 'bear' && isBearCandle) { bearScore += 1; bearCategories++; bearReasons.push(`Reacción bajista cerca del ${label}`); breakdown.keyLevel.bear += 1; }
+      if (dir === 'bull' && isBullCandle) { bullScore += 1; bullCategories++; bullKeyLevelType = key; bullReasons.push(`Reacción alcista cerca del ${label}`); breakdown.keyLevel.bull += 1; }
+      if (dir === 'bear' && isBearCandle) { bearScore += 1; bearCategories++; bearKeyLevelType = key; bearReasons.push(`Reacción bajista cerca del ${label}`); breakdown.keyLevel.bear += 1; }
     }
   }
 
@@ -393,8 +394,8 @@ function generateSignal({ ltfCandles, ltfStructure, htfStructure, biasStructure,
       else sweepBear = true;
     }
   }
-  if (sweepBull) { bullScore += 2; bullCategories++; bullAnchor = true; bullReasons.push('Barrido de liquidez (SSL) + reversión alcista'); breakdown.liquidity.bull = 2; }
-  if (sweepBear) { bearScore += 2; bearCategories++; bearAnchor = true; bearReasons.push('Barrido de liquidez (BSL) + reversión bajista'); breakdown.liquidity.bear = 2; }
+  if (sweepBull) { bullScore += 2; bullCategories++; bullAnchor = true; bullAnchorType = 'SWEEP'; bullReasons.push('Barrido de liquidez (SSL) + reversión alcista'); breakdown.liquidity.bull = 2; }
+  if (sweepBear) { bearScore += 2; bearCategories++; bearAnchor = true; bearAnchorType = 'SWEEP'; bearReasons.push('Barrido de liquidez (BSL) + reversión bajista'); breakdown.liquidity.bear = 2; }
   checklist.push({ label: 'Zona de entrada anclada (Order Block, FVG o barrido de liquidez)', passed: bullAnchor || bearAnchor });
 
   // Confirmación técnica secundaria — peso deliberadamente pequeño, nunca decide por sí sola
@@ -451,10 +452,43 @@ function generateSignal({ ltfCandles, ltfStructure, htfStructure, biasStructure,
     if (extremeVol) reasons = [...reasons, 'Volatilidad EXTREMA: se exige el doble de confluencia de lo normal'];
   }
 
+  const anchorType = signal === 'BUY' ? bullAnchorType : signal === 'SELL' ? bearAnchorType : null;
+  const keyLevelType = signal === 'BUY' ? bullKeyLevelType : signal === 'SELL' ? bearKeyLevelType : null;
+  const lastEventType = recentEvent ? lastEvent.type : null;
+  const setup = classifySetup({ signal, anchorType, lastEventType, keyLevelType });
+
   return {
     signal, confidence, confidenceLabel: confidenceCategory(confidence), tier,
-    bullScore, bearScore, reasons, checklist, breakdown, price, time: last.time
+    bullScore, bearScore, reasons, checklist, breakdown, price, time: last.time,
+    anchorType, keyLevelType, lastEventType, setup
   };
+}
+
+// ---------- Clasificador de "setups" nombrados ----------
+// Traduce las mismas confluencias ya detectadas a los patrones clásicos de
+// Smart Money Concepts, para que la señal diga no solo "por qué" sino "qué
+// tipo de setup es" en términos que un trader ICT reconoce.
+function classifySetup({ signal, anchorType, lastEventType, keyLevelType }) {
+  if (signal === 'NEUTRAL') return null;
+  if (anchorType === 'SWEEP' && lastEventType === 'CHoCH') {
+    return { code: 'A', name: 'Liquidity Sweep + CHoCH', desc: 'Barrido de liquidez seguido de un cambio de carácter — reversión clásica de smart money.' };
+  }
+  if (keyLevelType === 'asianHigh' || keyLevelType === 'asianLow') {
+    return { code: 'G', name: 'Barrido de Rango Asiático', desc: 'Barrido del rango asiático con reacción durante la sesión de Londres/NY — continuación clásica tras liquidez asiática.' };
+  }
+  if (keyLevelType === 'pdh' || keyLevelType === 'pdl') {
+    return { code: 'F', name: 'Barrido de PDH/PDL + Reversión', desc: 'Barrido del máximo o mínimo del día anterior con reacción de precio — liquidez institucional clásica.' };
+  }
+  if (anchorType === 'SWEEP') {
+    return { code: 'C', name: 'Barrido de Liquidez + Reversión', desc: 'Barrido de un pool de liquidez con reversión inmediata, sin ruptura de estructura previa confirmada.' };
+  }
+  if (anchorType === 'OB' && lastEventType === 'BOS') {
+    return { code: 'B', name: 'BOS + Continuación en Order Block', desc: 'Ruptura de estructura seguida de un retroceso al Order Block de origen — continuación de tendencia.' };
+  }
+  if (anchorType === 'FVG' && lastEventType) {
+    return { code: 'H', name: 'FVG tras Displacement', desc: 'Vela de expansión (displacement) dejó un Fair Value Gap y el precio regresó a rellenarlo parcialmente.' };
+  }
+  return { code: '—', name: 'Confluencia General', desc: 'Cumple el puntaje mínimo por combinación de factores, sin encajar en un patrón específico predefinido.' };
 }
 
 // ---------- Plan de trade (zona de entrada / nivel inválido / TP1-TP3) ----------
@@ -524,5 +558,5 @@ window.ICT = {
   detectSwings, analyzeStructure, detectOrderBlocks, detectFVGs,
   detectSRLevels, detectLiquidity, premiumDiscount, computeATR,
   detectLiquiditySweep, generateSignal, computeTradePlan,
-  labelSwings, internalExternalStructure, buildScenarios, confidenceCategory, computeKeyLevels
+  labelSwings, internalExternalStructure, buildScenarios, confidenceCategory, computeKeyLevels, classifySetup
 };

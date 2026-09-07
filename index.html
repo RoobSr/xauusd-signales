@@ -99,6 +99,7 @@
         <div class="confidence-bar"><div class="confidence-fill" id="confidenceFill"></div></div>
         <span id="confidenceText">0%</span>
       </div>
+      <div class="setup-info" id="setupInfo"></div>
       <div class="trade-plan" id="tradePlan"></div>
       <div class="btn-row">
         <button class="copy-btn" id="copyPlanBtn" disabled>📋 Copiar plan</button>
@@ -127,6 +128,20 @@
       <div class="tools-header">Alertas</div>
       <label class="switch-row"><input type="checkbox" id="tg-sound"> 🔊 Sonido al aparecer señal</label>
       <label class="switch-row"><input type="checkbox" id="tg-notify"> 🔔 Notificación del navegador</label>
+
+      <label class="switch-row"><input type="checkbox" id="tg-discord"> 🔗 Webhook de Discord</label>
+      <div class="webhook-row">
+        <input type="text" id="discordWebhookUrl" placeholder="https://discord.com/api/webhooks/...">
+        <button class="export-btn" id="testDiscordBtn">Probar</button>
+      </div>
+
+      <label class="switch-row"><input type="checkbox" id="tg-telegram"> ✈️ Bot de Telegram</label>
+      <div class="webhook-row">
+        <input type="text" id="telegramBotToken" placeholder="Token del bot">
+        <input type="text" id="telegramChatId" placeholder="Chat ID" style="max-width:100px;">
+        <button class="export-btn" id="testTelegramBtn">Probar</button>
+      </div>
+      <p class="muted small">Estas claves quedan guardadas solo en tu navegador (localStorage), nunca se envían a ningún lado más que directamente a Discord/Telegram. Trátalas como una contraseña. Los webhooks de Discord a veces son bloqueados por el navegador (CORS) — usa "Probar" para confirmar que funcionan antes de confiar en ellos.</p>
 
       <div class="tools-header" style="margin-top:10px;">Tamaño de posición</div>
       <div class="calc-row">
@@ -209,6 +224,23 @@
     <div class="macro-row"><span>Noticias de alto impacto</span><span class="na-tag">DATO NO DISPONIBLE</span></div>
     <div class="macro-row"><span>COT / posicionamiento institucional</span><span class="na-tag">DATO NO DISPONIBLE</span></div>
     <p class="muted small">Estos datos requieren una fuente en vivo con API key propia (Twelve Data, Alpha Vantage, Finnhub, un calendario económico de pago, etc.). Esta página no inventa valores: si no existe una fuente gratuita real y verificable, se muestra explícitamente como no disponible.</p>
+  </div>
+
+  <div class="panel-card">
+    <div class="tools-header">📖 Glosario ICT / Smart Money Concepts</div>
+    <details class="glossary-item"><summary>BOS (Break of Structure)</summary>Ruptura de estructura: el precio cierra más allá del último máximo o mínimo relevante en la dirección de la tendencia vigente — confirma que la tendencia continúa.</details>
+    <details class="glossary-item"><summary>CHoCH (Change of Character)</summary>Cambio de carácter: igual que un BOS, pero en contra de la tendencia vigente — la primera señal de que la estructura podría estar revirtiendo.</details>
+    <details class="glossary-item"><summary>Order Block (OB)</summary>La última vela contraria antes de un movimiento fuerte que rompe estructura. La zona de esa vela (máximo-mínimo) suele actuar como soporte/resistencia cuando el precio regresa a "mitigarla".</details>
+    <details class="glossary-item"><summary>Fair Value Gap (FVG)</summary>Un "hueco" de tres velas: cuando el precio se mueve tan rápido que deja un espacio sin operar entre la vela 1 y la vela 3. El precio tiende a regresar a rellenar ese hueco antes de continuar.</details>
+    <details class="glossary-item"><summary>Liquidity Sweep (barrido de liquidez)</summary>El precio rompe brevemente un máximo/mínimo donde se acumulan stops (liquidez), activándolos, y luego revierte con fuerza en la dirección contraria — común antes de un movimiento real.</details>
+    <details class="glossary-item"><summary>BSL / SSL</summary>Buy-Side Liquidity (arriba de máximos iguales, donde descansan stops de venta) y Sell-Side Liquidity (debajo de mínimos iguales, donde descansan stops de compra).</details>
+    <details class="glossary-item"><summary>Premium / Discount</summary>Divide el rango entre el último swing alto y bajo en dos mitades: comprar en la mitad baja ("discount") o vender en la alta ("premium") da mejor relación riesgo/beneficio.</details>
+    <details class="glossary-item"><summary>OTE (Optimal Trade Entry)</summary>Zona de retroceso entre 61.8% y 79% (Fibonacci) de un movimiento — la zona donde institucionalmente se considera más eficiente entrar.</details>
+    <details class="glossary-item"><summary>PDH / PDL</summary>Previous Day High / Previous Day Low: el máximo y mínimo del día calendario anterior — niveles que el mercado suele "visitar" y usar como referencia de liquidez.</details>
+    <details class="glossary-item"><summary>ATR (Average True Range)</summary>Mide la volatilidad promedio reciente en puntos. Se usa aquí para calcular el colchón del Stop Loss y clasificar si el mercado está tranquilo o agitado.</details>
+    <details class="glossary-item"><summary>RSI / MACD / ADX / Bollinger</summary>Indicadores técnicos clásicos usados solo como confirmación secundaria: RSI mide sobrecompra/sobreventa, MACD el momentum, ADX la fuerza de la tendencia, y Bollinger la expansión/contracción de la volatilidad.</details>
+    <details class="glossary-item"><summary>R:R (Risk:Reward)</summary>Relación riesgo:beneficio. Un R:R de 1:2 significa que si ganas, ganas el doble de lo que arriesgas si pierdes.</details>
+    <details class="glossary-item"><summary>Tier A+ / B / C</summary>Calidad de la señal según cuántas categorías de confluencia independientes se activaron a la vez: A+ (4 o más), B (2-3), C (el mínimo indispensable).</details>
   </div>
 </section>
 
