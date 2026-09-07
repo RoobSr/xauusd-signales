@@ -36,6 +36,8 @@
   (nunca sobre la vela en formación) y cada una exige una zona real (Order Block, FVG o barrido de liquidez) más una vela
   de confirmación — no son garantía de resultado, y el historial de la derecha rastrea automáticamente si cada señal
   pasada llegó primero a TP1 o al SL, para que la precisión se pueda verificar con datos reales, no solo con la confianza estimada.
+  <b>Sobre el timeframe 1m:</b> está disponible porque es técnicamente viable, no porque genere más ganancia — al contrario,
+  a menor temporalidad hay más ruido, señales más frágiles y el spread/slippage real de tu bróker pesa mucho más. Úsalo con criterio.
 </div>
 
 <section class="tv-wrap">
@@ -49,6 +51,7 @@
   <div class="chart-panel">
     <div class="chart-toolbar">
       <div class="tf-group" id="tfGroup">
+        <button data-tf="1m" class="tf-btn" title="Muy ruidoso: más señales, no más ganancia">1m</button>
         <button data-tf="5m" class="tf-btn">5m</button>
         <button data-tf="15m" class="tf-btn active">15m</button>
         <button data-tf="1h" class="tf-btn">1H</button>
@@ -94,6 +97,7 @@
   <aside class="signal-panel">
     <div class="signal-card" id="signalCard">
       <div class="signal-label">SEÑAL ACTUAL</div>
+      <div class="armed-banner" id="armedBanner" hidden></div>
       <div class="signal-badge" id="signalBadge">--</div>
       <div class="confidence-row">
         <div class="confidence-bar"><div class="confidence-fill" id="confidenceFill"></div></div>
@@ -206,6 +210,12 @@
     <div class="breakdown-table" id="perfBySession"></div>
     <div class="tools-header" style="margin-top:10px;">Por calidad (tier)</div>
     <div class="breakdown-table" id="perfByTier"></div>
+  </div>
+
+  <div class="panel-card">
+    <div class="tools-header">📊 Win Rate y Profit por Temporalidad</div>
+    <div class="tf-perf-table" id="tfPerfTable"></div>
+    <p class="muted small">Todo calculado en vivo desde tu historial real de señales verificadas (TP1 vs. SL) — nada estimado.</p>
   </div>
 
   <div class="panel-card">

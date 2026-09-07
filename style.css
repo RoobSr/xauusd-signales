@@ -231,9 +231,56 @@ html, body {
   border-radius: 6px;
   margin-bottom: 10px;
 }
-.signal-badge.BUY { background: rgba(38,166,154,0.15); color: var(--green); }
-.signal-badge.SELL { background: rgba(239,83,80,0.15); color: var(--red); }
+.signal-badge.BUY { background: rgba(38,166,154,0.15); color: var(--green); animation: badge-flash-buy 0.6s ease-out; }
+.signal-badge.SELL { background: rgba(239,83,80,0.15); color: var(--red); animation: badge-flash-sell 0.6s ease-out; }
 .signal-badge.NEUTRAL { background: rgba(138,144,163,0.12); color: var(--muted); }
+@keyframes badge-flash-buy {
+  0% { background: rgba(38,166,154,0.55); transform: scale(1.03); }
+  100% { background: rgba(38,166,154,0.15); transform: scale(1); }
+}
+@keyframes badge-flash-sell {
+  0% { background: rgba(239,83,80,0.55); transform: scale(1.03); }
+  100% { background: rgba(239,83,80,0.15); transform: scale(1); }
+}
+
+.tf-perf-table { display: flex; flex-direction: column; gap: 10px; }
+.tf-perf-empty { font-size: 12px; color: var(--muted); }
+.tf-perf-row { display: grid; grid-template-columns: 32px 1fr 40px; gap: 8px; align-items: center; }
+.tf-perf-tf { font-size: 11px; font-weight: 700; color: var(--text); }
+.tf-perf-bar-track {
+  height: 14px;
+  background: var(--panel-2);
+  border-radius: 7px;
+  overflow: hidden;
+  position: relative;
+}
+.tf-perf-bar-fill {
+  height: 100%;
+  width: 0%;
+  border-radius: 7px;
+  transition: width 0.9s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.tf-perf-bar-fill.good { background: linear-gradient(90deg, #1d7d73, var(--green)); }
+.tf-perf-bar-fill.mid { background: linear-gradient(90deg, #b8860b, #ffd740); }
+.tf-perf-bar-fill.bad { background: linear-gradient(90deg, #a13a37, var(--red)); }
+.tf-perf-wr { font-size: 12px; font-weight: 700; text-align: right; }
+.tf-perf-meta { grid-column: 1 / -1; font-size: 10px; color: var(--muted); margin-top: -4px; }
+
+.armed-banner {
+  font-size: 11px;
+  padding: 6px 10px;
+  border-radius: 5px;
+  margin-bottom: 8px;
+  background: rgba(255,202,64,0.12);
+  color: #ffd740;
+  border: 1px solid rgba(255,202,64,0.3);
+  animation: armed-pulse 1.6s ease-in-out infinite;
+}
+.armed-banner:empty, .armed-banner[hidden] { display: none; }
+@keyframes armed-pulse {
+  0%, 100% { opacity: 0.75; }
+  50% { opacity: 1; }
+}
 
 .tier-tag {
   font-size: 13px;
@@ -473,7 +520,7 @@ html, body {
 
 .mtf-bias {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(5, 1fr);
   gap: 6px;
   margin-bottom: 10px;
 }
@@ -711,6 +758,6 @@ footer {
   .secondary-panel { padding-left: 12px; padding-right: 12px; }
   .tradingview-widget-container { height: 260px; }
   .chart-container { height: 340px; }
-  .mtf-bias { grid-template-columns: repeat(2, 1fr); }
+  .mtf-bias { grid-template-columns: repeat(3, 1fr); }
   .calc-row { flex-direction: column; }
 }

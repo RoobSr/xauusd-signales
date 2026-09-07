@@ -459,7 +459,7 @@ function generateSignal({ ltfCandles, ltfStructure, htfStructure, biasStructure,
 
   return {
     signal, confidence, confidenceLabel: confidenceCategory(confidence), tier,
-    bullScore, bearScore, reasons, checklist, breakdown, price, time: last.time,
+    bullScore, bearScore, threshold, reasons, checklist, breakdown, price, time: last.time,
     anchorType, keyLevelType, lastEventType, setup
   };
 }

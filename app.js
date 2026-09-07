@@ -6,9 +6,9 @@
 
 const SYMBOL = 'PAXGUSDT';
 const HTF_INTERVAL = '1h';
-const ALL_TFS = ['5m', '15m', '1h', '4h'];
-const SWING_LOOKBACK = { '5m': 2, '15m': 2, '1h': 3, '4h': 4 };
-const TF_LABEL = { '5m': '5m', '15m': '15m', '1h': '1H', '4h': '4H' };
+const ALL_TFS = ['1m', '5m', '15m', '1h', '4h'];
+const SWING_LOOKBACK = { '1m': 2, '5m': 2, '15m': 2, '1h': 3, '4h': 4 };
+const TF_LABEL = { '1m': '1m', '5m': '5m', '15m': '15m', '1h': '1H', '4h': '4H' };
 const CANDLE_LIMIT = 300;
 const REFRESH_MS = 15000;
 const LOG_KEY = 'xauusd_signal_log_v1';
@@ -464,7 +464,7 @@ function evaluateSignalOutcomes(pipelines) {
 }
 
 // ---------- Guardia anti-sobreoperación: cooldown tras un SL reciente ----------
-const TF_SECONDS = { '5m': 300, '15m': 900, '1h': 3600, '4h': 14400 };
+const TF_SECONDS = { '1m': 60, '5m': 300, '15m': 900, '1h': 3600, '4h': 14400 };
 function applyCooldown(signalResult, tf) {
   if (signalResult.signal === 'NEUTRAL') return signalResult;
   const cooldownCandles = 3;
@@ -483,6 +483,57 @@ function applyCooldown(signalResult, tf) {
 function countSignalsToday(log, tf) {
   const todayStr = new Date().toISOString().slice(0, 10);
   return log.filter(item => item.tf === tf && new Date(item.time * 1000).toISOString().slice(0, 10) === todayStr).length;
+}
+
+// ---------- Aviso anticipado: "posible señal formándose" ----------
+// No es una señal — es un heads-up de que el puntaje ya está cerca del umbral
+// o de que una zona real ya fue tocada y solo falta la vela de confirmación.
+// Nunca se registra en el historial ni cuenta como señal real.
+let lastArmedKey = null;
+function checkArmedState(signalResult, tf) {
+  if (signalResult.signal !== 'NEUTRAL' || !signalResult.threshold) return null;
+  const net = signalResult.bullScore - signalResult.bearScore;
+  const absNet = Math.abs(net);
+  const proximityPct = Math.min(99, Math.round((absNet / signalResult.threshold) * 100));
+  const waitingConfirmation = signalResult.reasons.some(r => r.includes('esperando vela de confirmación'));
+  if (proximityPct < 60 && !waitingConfirmation) return null;
+  const direction = net >= 0 ? 'BUY' : 'SELL';
+  return { direction, proximityPct: waitingConfirmation ? Math.max(proximityPct, 70) : proximityPct, tf };
+}
+
+function renderArmedBanner(armed) {
+  const el = document.getElementById('armedBanner');
+  if (!armed) { el.innerHTML = ''; el.hidden = true; return; }
+  el.hidden = false;
+  el.className = 'armed-banner ' + armed.direction;
+  el.innerHTML = `🔶 Posible señal <b>${armed.direction === 'BUY' ? 'de COMPRA' : 'de VENTA'}</b> formándose en ${TF_LABEL[armed.tf]} — ${armed.proximityPct}% del camino al umbral`;
+}
+
+function playArmedSound() {
+  try {
+    audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = 'sine';
+    osc.frequency.value = 520;
+    gain.gain.setValueAtTime(0.0001, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.12, audioCtx.currentTime + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.22);
+    osc.connect(gain).connect(audioCtx.destination);
+    osc.start(); osc.stop(audioCtx.currentTime + 0.22);
+  } catch (e) { /* audio no disponible */ }
+}
+
+function maybeFireArmedAlert(armed) {
+  const key = armed ? `${armed.tf}_${armed.direction}` : null;
+  if (key && key !== lastArmedKey) {
+    const prefs = loadPrefs();
+    if (prefs.sound) playArmedSound();
+    if (prefs.notify && 'Notification' in window && Notification.permission === 'granted') {
+      new Notification('🔶 Posible señal formándose', { body: `${armed.direction} en ${TF_LABEL[armed.tf]} — ${armed.proximityPct}% del camino` });
+    }
+  }
+  lastArmedKey = key;
 }
 
 // ---------- Volatilidad + indicadores técnicos (confirmación) ----------
@@ -831,6 +882,44 @@ function renderBreakdownTable(elId, log, groupFn, labelFn, groups) {
 function renderPerformanceBreakdowns(log) {
   renderBreakdownTable('perfBySession', log, i => i.session || sessionOf(i.time), s => s, ['Asia', 'Londres', 'NY']);
   renderBreakdownTable('perfByTier', log, i => i.tier || '-', t => t, ['A+', 'B', 'C']);
+  renderTimeframePerformanceTable(log);
+}
+
+// Tabla animada de win rate / profit factor por temporalidad — todo real,
+// calculado del historial verificado (nunca estimado ni inventado).
+function renderTimeframePerformanceTable(log) {
+  const el = document.getElementById('tfPerfTable');
+  const rows = ALL_TFS.map(tf => {
+    const subset = log.filter(i => i.tf === tf);
+    const stats = BT.statsFromTrades(subset);
+    return { tf, stats };
+  }).filter(r => r.stats.resolved > 0);
+
+  if (!rows.length) {
+    el.innerHTML = '<div class="tf-perf-empty">Aún no hay señales resueltas en ninguna temporalidad. Esta tabla se va a llenar sola a medida que las señales toquen TP1 o SL.</div>';
+    return;
+  }
+
+  el.innerHTML = rows.map(({ tf, stats }) => {
+    const wr = stats.winRate ?? 0;
+    const pf = stats.profitFactor == null ? '-' : (stats.profitFactor === Infinity ? '∞' : stats.profitFactor.toFixed(2));
+    const colorClass = wr >= 60 ? 'good' : wr >= 45 ? 'mid' : 'bad';
+    return `
+      <div class="tf-perf-row">
+        <span class="tf-perf-tf">${TF_LABEL[tf]}</span>
+        <div class="tf-perf-bar-track"><div class="tf-perf-bar-fill ${colorClass}" data-w="${wr}"></div></div>
+        <span class="tf-perf-wr">${wr.toFixed(0)}%</span>
+        <span class="tf-perf-meta">PF ${pf} · ${stats.resolved} señ.${stats.avgR != null ? ' · ' + stats.avgR.toFixed(2) + 'R prom.' : ''}</span>
+      </div>
+    `;
+  }).join('');
+
+  // Anima el ancho después de insertar en el DOM (de 0% al valor real)
+  requestAnimationFrame(() => {
+    el.querySelectorAll('.tf-perf-bar-fill').forEach(bar => {
+      requestAnimationFrame(() => { bar.style.width = bar.dataset.w + '%'; });
+    });
+  });
 }
 
 // ---------- Exportar historial como CSV ----------
@@ -905,6 +994,10 @@ async function refresh() {
       sweeps: ltf.sweeps,
       technical, volatility: vol, keyLevels
     });
+    const armed = checkArmedState(signalResult, currentLTF);
+    renderArmedBanner(armed);
+    maybeFireArmedAlert(armed);
+
     signalResult = applyCooldown(signalResult, currentLTF);
     renderChecklist(signalResult);
     const plan = ICT.computeTradePlan(signalResult, ltf.candles, ltf.sr, ltf.obs, ltf.fvgs);
