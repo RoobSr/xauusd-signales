@@ -253,6 +253,7 @@ html, body {
 .sr-sup { background: var(--green); }
 .sr-res { background: var(--red); }
 .plan-entry { background: #c9ccd6; }
+.plan-potential { background: rgba(255,202,40,0.35); border: 1px dashed #ffca28; }
 .plan-sl { background: var(--red); }
 .plan-tp { background: var(--green); }
 .sess-asia { background: rgba(100,120,255,0.6); }
