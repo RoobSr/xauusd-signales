@@ -10,7 +10,7 @@ const ALL_TFS = ['1m', '5m', '15m', '1h', '4h'];
 const SWING_LOOKBACK = { '1m': 2, '5m': 2, '15m': 2, '1h': 3, '4h': 4 };
 const TF_LABEL = { '1m': '1m', '5m': '5m', '15m': '15m', '1h': '1H', '4h': '4H' };
 const CANDLE_LIMIT = 300;
-const REFRESH_MS = 15000;
+const REFRESH_MS = 5000; // más rápido = precio/distancia a la zona más al día; las zonas en sí solo cambian al cerrar una vela nueva
 const LOG_KEY = 'xauusd_signal_log_v1';
 const PREFS_KEY = 'xauusd_prefs_v1';
 
@@ -292,12 +292,14 @@ function renderMtfBias(pipelines) {
     const trend = pipelines[tf].structure.trend;
     const dirClass = trend === 'bullish' ? 'bullish' : trend === 'bearish' ? 'bearish' : 'unknown';
     const dirText = trend === 'bullish' ? 'Alcista' : trend === 'bearish' ? 'Bajista' : 'Indef.';
+    const arrow = trend === 'bullish' ? '↑' : trend === 'bearish' ? '↓' : '–';
     const active = tf === currentLTF ? ' active' : '';
-    return `<div class="mtf-cell${active}">
+    return `<div class="mtf-cell${active}" data-tf="${tf}" title="Clic para ver ${TF_LABEL[tf]}">
       <span class="mtf-tf">${TF_LABEL[tf]}</span>
-      <span class="mtf-dir ${dirClass}">${dirText}</span>
+      <span class="mtf-dir ${dirClass}">${arrow} ${dirText}</span>
     </div>`;
   }).join('');
+  el.querySelectorAll('.mtf-cell').forEach(cell => cell.addEventListener('click', () => switchTimeframe(cell.dataset.tf)));
 }
 
 // Zona de entrada detallada: rango, origen (OB/FVG/ATR), ancho, estado en vivo
@@ -397,30 +399,37 @@ const OUTCOME_BADGE = {
   'n/a': '<span class="outcome-tag na">— </span>'
 };
 
+function logItemHtml(item) {
+  const d = new Date(item.time * 1000);
+  const ts = `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+  return `<div class="log-item">
+    <span class="tag ${item.signal}">${item.signal}${item.tier ? ' ' + item.tier : ''}</span>
+    <span class="meta">${item.tf || ''}</span>
+    <span class="meta">${fmt(item.price)}</span>
+    ${OUTCOME_BADGE[item.outcome] || OUTCOME_BADGE.pending}
+    <span class="meta">${ts}</span>
+  </div>`;
+}
+
 function renderLog(log) {
-  const el = document.getElementById('signalLog');
+  const pendingEl = document.getElementById('signalLogPending');
+  const resolvedEl = document.getElementById('signalLog');
   const statsEl = document.getElementById('logStats');
+
   const resolved = log.filter(i => i.outcome === 'tp1' || i.outcome === 'sl');
+  const pending = log.filter(i => !i.outcome || i.outcome === 'pending');
   const wins = resolved.filter(i => i.outcome === 'tp1').length;
   statsEl.textContent = resolved.length
     ? `Precisión verificada: ${wins}/${resolved.length} (${Math.round((wins / resolved.length) * 100)}%) llegaron a TP1 antes que al SL`
     : 'Aún sin señales resueltas para medir precisión.';
 
-  if (!log.length) {
-    el.innerHTML = '<div style="color:var(--muted);font-size:12px;">Aún no hay señales registradas.</div>';
-    return;
-  }
-  el.innerHTML = [...log].reverse().map(item => {
-    const d = new Date(item.time * 1000);
-    const ts = `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
-    return `<div class="log-item">
-      <span class="tag ${item.signal}">${item.signal}${item.tier ? ' ' + item.tier : ''}</span>
-      <span class="meta">${item.tf || ''}</span>
-      <span class="meta">${fmt(item.price)}</span>
-      ${OUTCOME_BADGE[item.outcome] || OUTCOME_BADGE.pending}
-      <span class="meta">${ts}</span>
-    </div>`;
-  }).join('');
+  pendingEl.innerHTML = pending.length
+    ? [...pending].reverse().map(logItemHtml).join('')
+    : '<div style="color:var(--muted);font-size:12px;">Ninguna señal pendiente ahora mismo.</div>';
+
+  resolvedEl.innerHTML = resolved.length
+    ? [...resolved].reverse().map(logItemHtml).join('')
+    : '<div style="color:var(--muted);font-size:12px;">Aún no hay señales resueltas.</div>';
 }
 
 function maybeLogSignal(signalResult, plan) {
@@ -599,10 +608,21 @@ function renderChecklist(signalResult) {
 }
 
 // ---------- Rendimiento real (a partir del historial verificado) ----------
+let perfScope = 'tf'; // 'tf' = solo la temporalidad activa, 'all' = todas mezcladas (comparación explícita)
 function renderPerformance(log) {
-  const stats = BT.statsFromTrades(log);
+  const scoped = perfScope === 'tf' ? log.filter(i => i.tf === currentLTF) : log;
+  const stats = BT.statsFromTrades(scoped);
   document.getElementById('perfGrid').innerHTML = perfRowsHtml(stats);
   document.getElementById('signalsToday').textContent = countSignalsToday(log, currentLTF);
+  document.getElementById('perfScopeLabel').textContent = perfScope === 'tf' ? `(${TF_LABEL[currentLTF]} solamente)` : '(todas las temporalidades mezcladas)';
+}
+function wirePerfScopeToggle() {
+  document.getElementById('scopeTfBtn').addEventListener('click', () => { perfScope = 'tf'; refreshScopeButtons(); renderPerformance(loadLog()); });
+  document.getElementById('scopeAllBtn').addEventListener('click', () => { perfScope = 'all'; refreshScopeButtons(); renderPerformance(loadLog()); });
+}
+function refreshScopeButtons() {
+  document.getElementById('scopeTfBtn').classList.toggle('active', perfScope === 'tf');
+  document.getElementById('scopeAllBtn').classList.toggle('active', perfScope === 'all');
 }
 function perfRowsHtml(stats) {
   const pf = stats.profitFactor == null ? '-' : (stats.profitFactor === Infinity ? '∞' : stats.profitFactor.toFixed(2));
@@ -870,13 +890,14 @@ function renderOpportunities(allTfSignals) {
     return;
   }
   el.innerHTML = opportunities.map((o, i) => `
-    <div class="opp-row">
+    <div class="opp-row" data-tf="${o.tf}" title="Clic para ver ${TF_LABEL[o.tf]}">
       <span class="opp-tf">${TF_LABEL[o.tf]}</span>
       <span class="opp-sig ${o.signal}">${o.signal}${o.tier ? ' ' + o.tier : ''}</span>
       <span class="muted">${fmt(o.price)}</span>
       <span class="opp-conf">${o.confidence}% · ${o.confidenceLabel}</span>
     </div>
   `).join('');
+  el.querySelectorAll('.opp-row').forEach(row => row.addEventListener('click', () => switchTimeframe(row.dataset.tf)));
 }
 
 // ---------- Reporte narrativo (plantilla determinística sobre datos reales, sin IA externa) ----------
@@ -932,19 +953,23 @@ function renderTimeframePerformanceTable(log) {
     const subset = log.filter(i => i.tf === tf);
     const stats = BT.statsFromTrades(subset);
     return { tf, stats };
-  }).filter(r => r.stats.resolved > 0);
+  }).filter(r => r.stats.resolved > 0)
+    .sort((a, b) => (b.stats.winRate ?? -1) - (a.stats.winRate ?? -1)); // leaderboard: mejor win rate arriba
 
   if (!rows.length) {
     el.innerHTML = '<div class="tf-perf-empty">Aún no hay señales resueltas en ninguna temporalidad. Esta tabla se va a llenar sola a medida que las señales toquen TP1 o SL.</div>';
     return;
   }
 
-  el.innerHTML = rows.map(({ tf, stats }) => {
+  el.innerHTML = rows.map(({ tf, stats }, i) => {
     const wr = stats.winRate ?? 0;
     const pf = stats.profitFactor == null ? '-' : (stats.profitFactor === Infinity ? '∞' : stats.profitFactor.toFixed(2));
     const colorClass = wr >= 60 ? 'good' : wr >= 45 ? 'mid' : 'bad';
+    const active = tf === currentLTF ? ' active' : '';
+    const rank = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : '';
     return `
-      <div class="tf-perf-row">
+      <div class="tf-perf-row${active}" data-tf="${tf}" title="Clic para ver ${TF_LABEL[tf]}">
+        <span class="tf-perf-rank">${rank}</span>
         <span class="tf-perf-tf">${TF_LABEL[tf]}</span>
         <div class="tf-perf-bar-track"><div class="tf-perf-bar-fill ${colorClass}" data-w="${wr}"></div></div>
         <span class="tf-perf-wr">${wr.toFixed(0)}%</span>
@@ -952,6 +977,10 @@ function renderTimeframePerformanceTable(log) {
       </div>
     `;
   }).join('');
+
+  el.querySelectorAll('.tf-perf-row').forEach(row => {
+    row.addEventListener('click', () => switchTimeframe(row.dataset.tf));
+  });
 
   // Anima el ancho después de insertar en el DOM (de 0% al valor real)
   requestAnimationFrame(() => {
@@ -1152,15 +1181,17 @@ function wireLiveButton() {
   liveBtn.addEventListener('click', () => chart && chart.resetView());
 }
 
+function switchTimeframe(tf) {
+  if (!ALL_TFS.includes(tf) || tf === currentLTF) return;
+  document.querySelectorAll('.tf-btn').forEach(b => b.classList.toggle('active', b.dataset.tf === tf));
+  currentLTF = tf;
+  savePrefs({ ...loadPrefs(), tf: currentLTF });
+  refresh().then(startAutoRefresh);
+}
+
 function wireTimeframes() {
   document.querySelectorAll('.tf-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      document.querySelectorAll('.tf-btn').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      currentLTF = btn.dataset.tf;
-      savePrefs({ ...loadPrefs(), tf: currentLTF });
-      refresh().then(startAutoRefresh);
-    });
+    btn.addEventListener('click', () => switchTimeframe(btn.dataset.tf));
   });
 }
 
@@ -1193,6 +1224,7 @@ wireExportCsv();
 wireSync();
 wireWebhooks();
 wireOnboarding();
+wirePerfScopeToggle();
 renderLog(loadLog());
 refresh().then(startAutoRefresh);
 setInterval(tickCountdown, 1000);
