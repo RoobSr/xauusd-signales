@@ -76,6 +76,7 @@
         <button data-tf="1h" class="tf-btn">1H</button>
         <button data-tf="4h" class="tf-btn">4H</button>
       </div>
+      <button class="conservative-btn" id="conservativeModeBtn" title="Solo muestra y alerta señales tier A+ (más confluencias exigidas, menos señales pero más estrictas)">🔓 Modo Conservador: OFF</button>
       <button class="live-btn" id="liveBtn" hidden>🔴 Volver al precio en vivo</button>
       <div class="toggle-group">
         <label><input type="checkbox" id="tg-sr" checked> Soportes/Resistencias</label>
@@ -279,6 +280,7 @@
     <details class="glossary-item"><summary>RSI / MACD / ADX / Bollinger</summary>Indicadores técnicos clásicos usados solo como confirmación secundaria: RSI mide sobrecompra/sobreventa, MACD el momentum, ADX la fuerza de la tendencia, y Bollinger la expansión/contracción de la volatilidad.</details>
     <details class="glossary-item"><summary>R:R (Risk:Reward)</summary>Relación riesgo:beneficio. Un R:R de 1:2 significa que si ganas, ganas el doble de lo que arriesgas si pierdes.</details>
     <details class="glossary-item"><summary>Tier A+ / B / C</summary>Calidad de la señal según cuántas categorías de confluencia independientes se activaron a la vez: A+ (4 o más), B (2-3), C (el mínimo indispensable).</details>
+    <details class="glossary-item"><summary>Modo Conservador</summary>Filtro opcional (botón en la barra del gráfico) que oculta y no alerta ninguna señal que no sea tier A+. No cambia el análisis, solo sube la exigencia de confluencia antes de mostrar algo — el resultado esperado es muchas menos señales, con la intención de que las que sí pasan el filtro tengan mejor precisión histórica.</details>
   </div>
 </section>
 

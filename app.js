@@ -494,6 +494,34 @@ function applyCooldown(signalResult, tf) {
   return signalResult;
 }
 
+// ---------- Modo Conservador: solo dejar pasar señales tier A+ ----------
+// No cambia el motor de análisis ni sus umbrales — solo sube la exigencia
+// de calidad antes de mostrar/loguear/alertar una señal, exactamente igual
+// que si el usuario decidiera ignorar manualmente todo lo que no sea A+.
+function applyConservativeMode(signalResult) {
+  if (!loadPrefs().conservativeMode) return signalResult;
+  if (signalResult.signal === 'NEUTRAL' || signalResult.tier === 'A+') return signalResult;
+  return {
+    ...signalResult, signal: 'NEUTRAL', tier: null,
+    reasons: [...signalResult.reasons, `🔒 Modo Conservador activo: había una señal tier ${signalResult.tier}, pero se filtra porque solo se muestran A+`]
+  };
+}
+
+function wireConservativeMode() {
+  const btn = document.getElementById('conservativeModeBtn');
+  function apply(on) {
+    btn.classList.toggle('active', on);
+    btn.textContent = on ? '🔒 Modo Conservador: ON (solo A+)' : '🔓 Modo Conservador: OFF';
+  }
+  apply(!!loadPrefs().conservativeMode);
+  btn.addEventListener('click', () => {
+    const now = !loadPrefs().conservativeMode;
+    savePrefs({ ...loadPrefs(), conservativeMode: now });
+    apply(now);
+    refresh();
+  });
+}
+
 function countSignalsToday(log, tf) {
   const todayStr = new Date().toISOString().slice(0, 10);
   return log.filter(item => item.tf === tf && new Date(item.time * 1000).toISOString().slice(0, 10) === todayStr).length;
@@ -901,32 +929,40 @@ function renderOpportunities(allTfSignals) {
 }
 
 // ---------- Reporte narrativo (plantilla determinística sobre datos reales, sin IA externa) ----------
+// Estructurado como lo escribiría un analista: contexto -> lectura técnica -> tesis -> invalidación.
+// Un analista profesional siempre deja explícito qué movimiento contrario anula su idea; por eso el
+// nivel de invalidación (el mismo que el SL) se declara aparte, no solo como un número más del plan.
 function buildNarrative(signalResult, plan, ltf, htf, bias4h, vol, sessionLabel) {
-  const dirWord = signalResult.signal === 'BUY' ? 'una compra' : signalResult.signal === 'SELL' ? 'una venta' : 'ninguna operación por ahora';
   const trendWord = (t) => t === 'bullish' ? 'alcista' : t === 'bearish' ? 'bajista' : 'indefinida';
+  const dirWord = signalResult.signal === 'BUY' ? 'compra' : signalResult.signal === 'SELL' ? 'venta' : null;
 
-  const p1 = `El mercado de XAUUSD (referencia PAXG/USDT) cotiza en ${fmt(signalResult.price)} durante la sesión de ${sessionLabel}, ` +
-    `con una tendencia de 1H ${trendWord(htf.structure.trend)} y un sesgo de 4H ${trendWord(bias4h.structure.trend)}. ` +
-    `La volatilidad actual se clasifica como ${vol.level} (ATR ${vol.atr.toFixed(2)}, ${vol.ratio.toFixed(2)}x su promedio reciente).`;
+  const context = `<p><b>Contexto de mercado:</b> XAUUSD (ref. PAXG/USDT) cotiza en ${fmt(signalResult.price)} durante la sesión de ${sessionLabel}. ` +
+    `Sesgo de 4H ${trendWord(bias4h.structure.trend)}, tendencia de 1H ${trendWord(htf.structure.trend)}. ` +
+    `Volatilidad ${vol.level} (ATR ${vol.atr.toFixed(2)}, ${vol.ratio.toFixed(2)}x su media reciente).</p>`;
 
   const reasonsText = signalResult.reasons.length
     ? signalResult.reasons.map(r => r.replace(/^⚠ /, '')).join('; ') + '.'
-    : 'no hay confluencias relevantes activas en este momento.';
-  const p2 = `El motor de análisis recomienda ${dirWord} en ${TF_LABEL[currentLTF]}, con ${signalResult.confidence}% de confianza (${signalResult.confidenceLabel})` +
-    `${signalResult.tier ? `, calidad de señal ${signalResult.tier}` : ''}. Las razones consideradas son: ${reasonsText}`;
+    : 'sin confluencias relevantes activas en este momento.';
+  const lectura = `<p><b>Lectura técnica (${TF_LABEL[currentLTF]}):</b> ${reasonsText}</p>`;
 
-  let p3;
+  const tesis = dirWord
+    ? `<p><b>Tesis:</b> el motor identifica condiciones para una posible ${dirWord}, con ${signalResult.confidence}% de confianza ` +
+      `(${signalResult.confidenceLabel})${signalResult.tier ? `, calidad de señal <b>${signalResult.tier}</b>` : ''}` +
+      `${signalResult.setup ? ` — Setup ${signalResult.setup.code}: ${signalResult.setup.name}.` : '.'}</p>`
+    : `<p><b>Tesis:</b> no hay condiciones suficientes para operar en ${TF_LABEL[currentLTF]} ahora mismo — es lo normal la mayoría del tiempo, no un fallo del sistema.</p>`;
+
+  let plan_html;
   if (plan) {
-    p3 = `Si se ejecutara, la zona de entrada sugerida es ${fmt(plan.entryZone[0])}–${fmt(plan.entryZone[1])}, con nivel inválido (SL) en ${fmt(plan.sl)} ` +
-      `y objetivos en ${fmt(plan.tp1)} (R:R ${plan.rr1}), ${fmt(plan.tp2)} (R:R ${plan.rr2}) y ${fmt(plan.tp3)} (R:R ${plan.rr3}).`;
+    const invalidWord = signalResult.signal === 'BUY' ? 'un cierre por debajo de' : 'un cierre por encima de';
+    plan_html = `<p><b>Plan hipotético (no es una orden ejecutada):</b> zona de entrada ${fmt(plan.entryZone[0])}–${fmt(plan.entryZone[1])}, ` +
+      `objetivos en ${fmt(plan.tp1)} (R:R ${plan.rr1}), ${fmt(plan.tp2)} (R:R ${plan.rr2}) y ${fmt(plan.tp3)} (R:R ${plan.rr3}).</p>` +
+      `<p><b>Invalidación:</b> esta lectura queda invalidada con ${invalidWord} ${fmt(plan.sl)} — ese mismo nivel es el que se usa como Stop Loss.</p>`;
   } else {
     const failed = (signalResult.checklist || []).filter(c => !c.passed).map(c => c.label);
-    p3 = failed.length
-      ? `No hay plan de trade porque aún falta: ${failed.join('; ')}.`
-      : `No hay plan de trade activo; el motor espera una confluencia más clara antes de sugerir una entrada.`;
+    plan_html = `<p><b>Qué falta para un plan de trade:</b> ${failed.length ? failed.join('; ') + '.' : 'una confluencia más clara antes de sugerir una zona de entrada.'}</p>`;
   }
 
-  return [p1, p2, p3].map(t => `<p>${t}</p>`).join('');
+  return context + lectura + tesis + plan_html;
 }
 
 // ---------- Rendimiento por sesión y por calidad (tier) ----------
@@ -1067,6 +1103,7 @@ async function refresh() {
     maybeFireArmedAlert(armed);
 
     signalResult = applyCooldown(signalResult, currentLTF);
+    signalResult = applyConservativeMode(signalResult);
     renderChecklist(signalResult);
     const plan = ICT.computeTradePlan(signalResult, ltf.candles, ltf.sr, ltf.obs, ltf.fvgs);
 
@@ -1218,6 +1255,7 @@ wireTimeframes();
 wireTools();
 wireLiveButton();
 wireModeToggle();
+wireConservativeMode();
 wireBacktest();
 wireSecondaryPanel();
 wireExportCsv();

@@ -179,6 +179,24 @@ html, body {
 }
 .live-btn:hover { background: rgba(239,83,80,0.25); }
 
+.conservative-btn {
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  color: var(--muted);
+  padding: 5px 12px;
+  border-radius: 5px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.conservative-btn:hover { background: #1c2230; }
+.conservative-btn.active {
+  background: rgba(255,215,64,0.12);
+  border-color: #ffd740;
+  color: #ffd740;
+}
+
 .toggle-group { display: flex; gap: 12px; flex-wrap: wrap; }
 .toggle-group label {
   font-size: 11px;
